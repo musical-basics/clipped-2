@@ -21,7 +21,11 @@ export default function CaptureScreen() {
 
   const handleSave = async () => {
     const noteText = text.trim();
-    if (!noteText || !userId) return;
+    if (!noteText) return;
+    if (!userId) {
+      console.error("Cannot save: userId is null");
+      return;
+    }
 
     // Immediately clear input — zero friction
     setText("");
@@ -41,7 +45,10 @@ export default function CaptureScreen() {
 
       if (error) throw error;
     } catch (err) {
-      Alert.alert("Save Failed", "Your note could not be saved. Please try again.");
+      console.error("Save failed:", err);
+      if (typeof window !== "undefined") {
+        window.alert("Save failed. Check the console for details.");
+      }
       // Restore text so user doesn't lose their note
       setText(noteText);
     } finally {

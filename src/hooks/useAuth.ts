@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const USER_ID_KEY = "triagenotes_user_id";
 
 /**
  * Generates or retrieves a persistent device-level user ID.
- * Since we use the service role key (bypasses RLS), we don't need
- * Supabase Auth. Instead, we use a UUID stored locally in AsyncStorage
- * to associate notes with this device.
+ * Uses localStorage on web, AsyncStorage on native.
  */
 export function useAuth() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -15,14 +12,35 @@ export function useAuth() {
 
   useEffect(() => {
     const initUser = async () => {
-      let storedId = await AsyncStorage.getItem(USER_ID_KEY);
-      if (!storedId) {
-        // Generate a simple UUID v4
-        storedId = generateUUID();
-        await AsyncStorage.setItem(USER_ID_KEY, storedId);
+      try {
+        let storedId: string | null = null;
+
+        // Use localStorage on web, AsyncStorage on native
+        if (typeof window !== "undefined" && window.localStorage) {
+          storedId = window.localStorage.getItem(USER_ID_KEY);
+          if (!storedId) {
+            storedId = generateUUID();
+            window.localStorage.setItem(USER_ID_KEY, storedId);
+          }
+        } else {
+          const AsyncStorage = (
+            await import("@react-native-async-storage/async-storage")
+          ).default;
+          storedId = await AsyncStorage.getItem(USER_ID_KEY);
+          if (!storedId) {
+            storedId = generateUUID();
+            await AsyncStorage.setItem(USER_ID_KEY, storedId);
+          }
+        }
+
+        setUserId(storedId);
+      } catch (err) {
+        // Fallback: generate a non-persistent UUID
+        console.warn("Auth storage failed, using ephemeral ID:", err);
+        setUserId(generateUUID());
+      } finally {
+        setLoading(false);
       }
-      setUserId(storedId);
-      setLoading(false);
     };
     initUser();
   }, []);
